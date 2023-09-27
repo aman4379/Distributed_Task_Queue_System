@@ -24,21 +24,17 @@ using bsoncxx::builder::stream::finalize;
 using bsoncxx::builder::stream::open_document;
 using bsoncxx::builder::stream::close_document;
 
-// Define a Task structure.
 struct Task {
     std::string id;
     std::string data;
 };
 
-// Initialize the MongoDB driver instance.
 mongocxx::instance inst{};
 
-// Define a MongoDB client and connect to the database.
 mongocxx::client client{mongocxx::uri{"mongodb://localhost:27017"}};
 mongocxx::database db = client["task_queue"];
 mongocxx::collection tasks = db["tasks"];
 
-// Define a worker node class.
 class WorkerNode : public Runnable {
 public:
     WorkerNode(const std::string& name)
@@ -48,7 +44,6 @@ public:
         while (true) {
             Task task = taskQueue_.getTask();
             std::cout << "Worker " << name_ << " executing task: " << task.id << std::endl;
-            // Simulate task execution by sleeping for a while.
             Thread::sleep(1000);
             std::cout << "Worker " << name_ << " completed task: " << task.id << std::endl;
         }
@@ -56,10 +51,8 @@ public:
 
 private:
     std::string name_;
-    // TaskQueue taskQueue_; // Use the global task queue for load balancing.
 };
 
-// Define a task queue class with load balancing.
 class TaskQueue {
 public:
     TaskQueue() : nextWorker_(0) {}
@@ -75,7 +68,6 @@ public:
         Task task = tasks_.front();
         tasks_.pop();
 
-        // Send the task to the selected worker.
         workers_[workerIndex]->assignTask(task);
 
         return task;
@@ -93,7 +85,6 @@ private:
     std::atomic<int> nextWorker_;
 };
 
-// Define a server class that accepts task submissions.
 class TaskServer {
 public:
     TaskServer(TaskQueue& taskQueue, int port)
@@ -115,13 +106,11 @@ public:
         Task task;
         stream >> task.id >> task.data;
 
-        // Store the task in the MongoDB database.
         bsoncxx::document::value doc = document{} <<
             "id" << task.id <<
             "data" << task.data << finalize;
         tasks.insert_one(doc.view());
 
-        // Add the task to the global task queue for load balancing.
         taskQueue_.addTask(task);
     }
 
@@ -133,7 +122,6 @@ private:
 int main() {
     TaskQueue taskQueue;
 
-    // Create and start worker nodes.
     std::vector<WorkerNode> workers;
     for (int i = 1; i <= 3; ++i) {
         std::string workerName = "Worker-" + std::to_string(i);
@@ -144,7 +132,6 @@ int main() {
         taskQueue.addWorker(&worker);
     }
 
-    // Start the task submission server.
     TaskServer taskServer(taskQueue, 8080);
     taskServer.start();
 
